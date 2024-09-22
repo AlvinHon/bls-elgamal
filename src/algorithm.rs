@@ -159,8 +159,7 @@ where
             .serialize_compressed(&mut bytes)
             .map_err(|_| serde::ser::Error::custom("Failed to serialize the secret"))?;
 
-        let enc_bytes =
-            bincode::serialize(&self.encrypt_key).map_err(|e| serde::ser::Error::custom(e))?;
+        let enc_bytes = bincode::serialize(&self.encrypt_key).map_err(serde::ser::Error::custom)?;
 
         bytes.extend(enc_bytes);
         serializer.serialize_bytes(&bytes)
@@ -192,7 +191,7 @@ where
         let secret_size = secret.serialized_size(ark_serialize::Compress::Yes);
         let enc_key: EncryptKey<S, P> =
             bincode::deserialize(&bytes[(generator_size + secret_size)..])
-                .map_err(|e| serde::de::Error::custom(e))?;
+                .map_err(serde::de::Error::custom)?;
 
         Ok(DecryptKey {
             generator,

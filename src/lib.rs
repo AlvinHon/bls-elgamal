@@ -10,26 +10,24 @@
 //! use rand::prelude::StdRng;
 //! use rand_core::SeedableRng;
 //!     
-//! fn main() {
-//!     let mut rng = StdRng::from_entropy();
-//!     let x = Fr::rand(&mut rng);
-//!     let g1: G1 = G1::rand(&mut rng);
+//! let mut rng = StdRng::from_entropy();
+//! let x = Fr::rand(&mut rng);
+//! let g1: G1 = G1::rand(&mut rng);
 //!     
-//!     // Create a secret key and a public key
-//!     let sk = SecretKey::new(g1, x);
-//!     let pk = sk.public_key();
+//! // Create a secret key and a public key
+//! let sk = SecretKey::new(g1, x);
+//! let pk = sk.public_key();
 //!
-//!     // Define a message and randomness
-//!     let m = G1::rand(&mut rng);
-//!     let r = Fr::rand(&mut rng);
+//! // Define a message and randomness
+//! let m = G1::rand(&mut rng);
+//! let r = Fr::rand(&mut rng);
 //!
-//!     // Encrypt and decrypt the message
-//!     let ciphertext = pk.encrypt(m, r);
-//!     let decrypted_m = sk.decrypt(ciphertext);
+//! // Encrypt and decrypt the message
+//! let ciphertext = pk.encrypt(m, r);
+//! let decrypted_m = sk.decrypt(ciphertext);
 //!
-//!     assert_eq!(m, decrypted_m);
-//! }
-//!
+//! assert_eq!(m, decrypted_m);
+//! ```
 
 pub(crate) mod algorithm;
 pub(crate) mod ciphertext;
