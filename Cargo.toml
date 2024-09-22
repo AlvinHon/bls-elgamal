@@ -14,11 +14,14 @@ name = "bls_elgamal"
 path = "src/lib.rs"
 
 [dependencies]
+ark-bls12-381 = { version = "^0.4.0" }
 ark-ec = { version = "^0.4.0", default-features = false }
 ark-ff = { version = "^0.4.0", default-features = false }
+ark-serialize = { version = "^0.4.0", features = ["derive"] }
 ark-std = { version = "^0.4.0", default-features = false }
+bincode = "1"
 rand_core = "0.6"
-ark-bls12-381 = { version = "^0.4.0" }
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 rand = "0.8"

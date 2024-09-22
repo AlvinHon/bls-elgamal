@@ -1,5 +1,5 @@
 use ark_std::UniformRand;
-use bls_elgamal::{Ciphertext, Fr, SecretKey, G1};
+use bls_elgamal::{Ciphertext, Fr, PublicKey, SecretKey, G1};
 use rand::prelude::StdRng;
 use rand_core::SeedableRng;
 
@@ -67,4 +67,39 @@ fn test_decrypt_modified_ciphertext() {
         let decrypted_m = sk.decrypt(modified_ct);
         assert_ne!(m, decrypted_m);
     }
+}
+
+#[test]
+fn test_serde() {
+    let mut rng = StdRng::from_entropy();
+    let x = Fr::rand(&mut rng);
+    let g1: G1 = G1::rand(&mut rng);
+
+    let sk = SecretKey::new(g1, x);
+    let pk = sk.public_key();
+
+    let m = G1::rand(&mut rng);
+    let r = Fr::rand(&mut rng);
+    let ct = pk.encrypt(m, r);
+
+    // test serialize and deserialize for secret key
+    let serialized = bincode::serialize(&sk).unwrap();
+    let deserialized_sk: SecretKey = bincode::deserialize(&serialized).unwrap();
+    assert!(sk == deserialized_sk);
+
+    // test serialize and deserialize for public key
+    let serialized = bincode::serialize(&pk).unwrap();
+    let deserialized_pk: PublicKey = bincode::deserialize(&serialized).unwrap();
+    assert!(pk == deserialized_pk);
+
+    // test serialize and deserialize for ciphertext
+    let serialized = bincode::serialize(&ct).unwrap();
+    let deserialized_ct: Ciphertext<G1> = bincode::deserialize(&serialized).unwrap();
+    assert_eq!(ct, deserialized_ct);
+
+    // test encrypt and decrypt after serialization and deserialization
+    let check_ct = deserialized_pk.encrypt(m, r);
+    assert_eq!(ct, check_ct);
+    let decrypt_m = deserialized_sk.decrypt(check_ct);
+    assert_eq!(m, decrypt_m);
 }

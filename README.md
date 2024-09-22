@@ -2,6 +2,8 @@
 
 This crate provides an implementation of the Elgamal encryption scheme over elliptic curves using the BLS12-381 curve (G1).
 
+Note: this repository has not been thoroughly audited. Please take your own risk if you use it in production environment.
+
 ## Example
 
 ```rust

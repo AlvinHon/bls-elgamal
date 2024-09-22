@@ -37,12 +37,14 @@ pub use ciphertext::Ciphertext;
 
 use ark_bls12_381::{Bls12_381 as F, G1Projective};
 use ark_ec::pairing::Pairing;
+use serde::{Deserialize, Serialize};
 
 // re-export the curve types
 pub type G1 = G1Projective;
 pub type Fr = <F as Pairing>::ScalarField;
 
 /// A secret key for Elgamal encryption. The secret key is used to decrypt messages.
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SecretKey {
     inner: algorithm::DecryptKey<Fr, G1>,
 }
@@ -94,6 +96,7 @@ impl SecretKey {
 /// A public key for Elgamal encryption. The public key is used to encrypt messages.
 ///
 /// The public key is created from the secret key [`SecretKey`].
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PublicKey {
     inner: algorithm::EncryptKey<Fr, G1>,
 }
