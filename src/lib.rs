@@ -125,4 +125,36 @@ impl PublicKey {
     pub fn encrypt(&self, m: G1, r: Fr) -> Ciphertext<G1> {
         self.inner.encrypt(m, r)
     }
+
+    /// Rerandomize a ciphertext `ct` with randomness `r`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ark_std::UniformRand;
+    /// use bls_elgamal::{Fr, SecretKey, G1};
+    /// use rand::prelude::StdRng;
+    /// use rand_core::SeedableRng;
+    ///
+    /// let mut rng = StdRng::from_entropy();
+    /// let x = Fr::rand(&mut rng);
+    /// let g1: G1 = G1::rand(&mut rng);
+    ///
+    /// let sk = SecretKey::new(g1, x);
+    /// let pk = sk.public_key();
+    ///
+    /// let m = G1::rand(&mut rng);
+    /// let r = Fr::rand(&mut rng);
+    ///
+    /// let ct = pk.encrypt(m, r);
+    /// let new_ct = pk.rerandomize(ct, Fr::rand(&mut rng));
+    ///
+    /// assert_ne!(ct, new_ct);
+    ///
+    /// let d_m = sk.decrypt(new_ct);
+    /// assert_eq!(m, d_m);
+    /// ```
+    pub fn rerandomize(&self, ct: Ciphertext<G1>, r: Fr) -> Ciphertext<G1> {
+        self.inner.rerandomize(ct, r)
+    }
 }

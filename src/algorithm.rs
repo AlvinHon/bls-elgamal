@@ -31,9 +31,16 @@ where
     for<'a> P: Mul<&'a S, Output = P>,
 {
     /// Encrypt a message `m` with randomness `r`. Ciphertext is (rG, m + rY).
-    pub fn encrypt(&self, m: P, r: S) -> Ciphertext<P> {
+    pub(crate) fn encrypt(&self, m: P, r: S) -> Ciphertext<P> {
         let a = self.generator * &r;
         let b = self.y * &r + m;
+        Ciphertext(a, b)
+    }
+
+    /// Rerandomize a ciphertext with randomness `r`. Ciphertext is (a + rG, b + rY).
+    pub(crate) fn rerandomize(&self, ct: Ciphertext<P>, r: S) -> Ciphertext<P> {
+        let a = ct.0 + self.generator * &r;
+        let b = ct.1 + self.y * &r;
         Ciphertext(a, b)
     }
 }
@@ -71,7 +78,7 @@ where
     for<'a> P: Mul<&'a S, Output = P>,
 {
     /// Create a new decryption key with group generator `generator` and secret `x`.
-    pub fn new(generator: P, x: S) -> Self {
+    pub(crate) fn new(generator: P, x: S) -> Self {
         let y = generator * &x;
         Self {
             generator,
@@ -85,7 +92,7 @@ where
     }
 
     /// Decrypt a ciphertext (a, b) to get b - ax.
-    pub fn decrypt(&self, ct: Ciphertext<P>) -> P {
+    pub(crate) fn decrypt(&self, ct: Ciphertext<P>) -> P {
         ct.1 - ct.0 * &self.secret
     }
 }
