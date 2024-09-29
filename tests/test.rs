@@ -70,6 +70,33 @@ fn test_decrypt_modified_ciphertext() {
 }
 
 #[test]
+fn test_homomorphic_ciphertext() {
+    for _ in 0..100 {
+        let mut rng = StdRng::from_entropy();
+        let x = Fr::rand(&mut rng);
+        let g1: G1 = G1::rand(&mut rng);
+
+        let sk = SecretKey::new(g1, x);
+        let pk = sk.public_key();
+
+        let m1 = G1::rand(&mut rng);
+        let m2 = G1::rand(&mut rng);
+        let r1 = Fr::rand(&mut rng);
+        let r2 = Fr::rand(&mut rng);
+
+        // encrypt two messages
+        let ct1 = pk.encrypt(m1, r1);
+        let ct2 = pk.encrypt(m2, r2);
+
+        // add two ciphertexts
+        let ct3 = &ct1 + &ct2;
+        let decrypted_m1 = sk.decrypt(ct3);
+        let decrypted_m2 = m1 + m2;
+        assert_eq!(decrypted_m1, decrypted_m2);
+    }
+}
+
+#[test]
 fn test_serde() {
     let mut rng = StdRng::from_entropy();
     let x = Fr::rand(&mut rng);

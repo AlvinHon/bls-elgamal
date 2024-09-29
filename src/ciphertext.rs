@@ -1,12 +1,58 @@
+use std::ops::Add;
+
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
 /// A ciphertext is a pair of two points.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 // (rG, m + rY)
-pub struct Ciphertext<P>(pub P, pub P)
+pub struct Ciphertext<P>(pub P, pub P);
+
+// Implement homomorphic addition for Ciphertext
+
+impl<P> Add for Ciphertext<P>
 where
-    P: CanonicalSerialize + CanonicalDeserialize;
+    P: Add<Output = P>,
+{
+    type Output = Ciphertext<P>;
+
+    fn add(self, rhs: Self) -> Self {
+        Ciphertext(self.0 + rhs.0, self.1 + rhs.1)
+    }
+}
+
+impl<P> Add for &Ciphertext<P>
+where
+    for<'a> &'a P: Add<&'a P, Output = P>,
+{
+    type Output = Ciphertext<P>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Ciphertext(&self.0 + &rhs.0, &self.1 + &rhs.1)
+    }
+}
+
+impl<P> Add<&Ciphertext<P>> for Ciphertext<P>
+where
+    for<'a> P: Add<&'a P, Output = P>,
+{
+    type Output = Ciphertext<P>;
+
+    fn add(self, rhs: &Self) -> Self::Output {
+        Ciphertext(self.0 + &rhs.0, self.1 + &rhs.1)
+    }
+}
+
+impl<P> Add<Ciphertext<P>> for &Ciphertext<P>
+where
+    for<'a> &'a P: Add<P, Output = P>,
+{
+    type Output = Ciphertext<P>;
+
+    fn add(self, rhs: Ciphertext<P>) -> Self::Output {
+        Ciphertext(&self.0 + rhs.0, &self.1 + rhs.1)
+    }
+}
 
 // Implement serialization and deserialization for Ciphertext
 
