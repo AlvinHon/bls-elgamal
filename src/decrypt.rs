@@ -29,6 +29,16 @@ impl<E: Pairing> DecryptKey<E> {
     pub fn decrypt(&self, ct: Ciphertext<E>) -> E::G1Affine {
         (ct.1 + ct.0 * self.secret.neg()).into()
     }
+
+    /// Get the encrypt key.
+    pub fn encrypt_key(&self) -> &EncryptKey<E> {
+        &self.encrypt_key
+    }
+
+    /// Get the scalar field secret (x).
+    pub fn secret(&self) -> E::ScalarField {
+        self.secret
+    }
 }
 
 impl<E: Pairing> Serialize for DecryptKey<E> {

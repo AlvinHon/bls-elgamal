@@ -15,7 +15,7 @@ pub struct EncryptKey<E: Pairing> {
     /// The group generator.
     pub(crate) generator: E::G1Affine,
     /// The public key.
-    pub(crate) y: E::G1Affine, // rG
+    pub(crate) y: E::G1Affine, // xG
 }
 
 impl<E: Pairing> EncryptKey<E> {
@@ -31,6 +31,16 @@ impl<E: Pairing> EncryptKey<E> {
         let a = ct.0 + self.generator * r;
         let b = ct.1 + self.y * r;
         Ciphertext(a.into(), b.into())
+    }
+
+    /// Get the generator.
+    pub fn generator(&self) -> E::G1Affine {
+        self.generator
+    }
+
+    /// Get the component Y (= xG) where x is the secret key.
+    pub fn y(&self) -> E::G1Affine {
+        self.y
     }
 }
 
