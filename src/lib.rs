@@ -29,9 +29,14 @@
 //! assert_eq!(m, decrypted_m);
 //! ```
 
-pub mod algorithm;
 pub mod ciphertext;
 pub use ciphertext::Ciphertext;
+
+pub mod decrypt;
+pub use decrypt::DecryptKey;
+
+pub mod encrypt;
+pub use encrypt::EncryptKey;
 
 use ark_ec::pairing::Pairing;
 use serde::{Deserialize, Serialize};
@@ -41,17 +46,18 @@ pub type F = ark_bls12_381::Bls12_381;
 pub type G1 = <F as Pairing>::G1Affine;
 pub type Fr = <F as Pairing>::ScalarField;
 
-/// A secret key for Elgamal encryption. The secret key is used to decrypt messages.
+/// A secret key for Elgamal encryption over the BLS12-381 curve, basically
+/// a wrapper around the [`DecryptKey`] struct.
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SecretKey {
-    inner: algorithm::DecryptKey<ark_bls12_381::Bls12_381>,
+    inner: DecryptKey<ark_bls12_381::Bls12_381>,
 }
 
 impl SecretKey {
     /// Create a new secret key with group generator `g1` and secret `x`.
     pub fn new(g1: G1, x: Fr) -> Self {
         Self {
-            inner: algorithm::DecryptKey::new(g1, x),
+            inner: DecryptKey::new(g1, x),
         }
     }
 
@@ -91,12 +97,13 @@ impl SecretKey {
     }
 }
 
-/// A public key for Elgamal encryption. The public key is used to encrypt messages.
+/// A public key for Elgamal encryption over the BLS12-381 curve, basically
+/// a wrapper around the [`EncryptKey`] struct.
 ///
 /// The public key is created from the secret key [`SecretKey`].
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PublicKey {
-    inner: algorithm::EncryptKey<F>,
+    inner: EncryptKey<F>,
 }
 
 impl PublicKey {
