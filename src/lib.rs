@@ -1,33 +1,4 @@
-//! # Elgamal Encryption
-//!
-//! This crate provides an implementation of the Elgamal encryption scheme over elliptic curves using the BLS12-381 curve (G1).
-//!
-//! ## Example
-//!
-//! ```rust
-//! use ark_std::UniformRand;
-//! use bls_elgamal::{Fr, SecretKey, G1};
-//! use rand::prelude::StdRng;
-//! use rand_core::SeedableRng;
-//!     
-//! let mut rng = StdRng::from_entropy();
-//! let x = Fr::rand(&mut rng);
-//! let g1: G1 = G1::rand(&mut rng);
-//!     
-//! // Create a secret key and a public key
-//! let sk = SecretKey::new(g1, x);
-//! let pk = sk.public_key();
-//!
-//! // Define a message and randomness
-//! let m = G1::rand(&mut rng);
-//! let r = Fr::rand(&mut rng);
-//!
-//! // Encrypt and decrypt the message
-//! let ciphertext = pk.encrypt(m, r);
-//! let decrypted_m = sk.decrypt(ciphertext);
-//!
-//! assert_eq!(m, decrypted_m);
-//! ```
+#![doc = include_str!("../README.md")]
 
 pub mod ciphertext;
 pub use ciphertext::Ciphertext;
@@ -38,24 +9,24 @@ pub use decrypt::DecryptKey;
 pub mod encrypt;
 pub use encrypt::EncryptKey;
 
-use ark_ec::pairing::Pairing;
+use ark_ec::{pairing::Pairing, CurveGroup, Group};
 use serde::{Deserialize, Serialize};
 
 // re-export the curve types
-pub type F = ark_bls12_381::Bls12_381;
-pub type G1 = <F as Pairing>::G1Affine;
-pub type Fr = <F as Pairing>::ScalarField;
+pub type G1 = <ark_bls12_381::Bls12_381 as Pairing>::G1;
+pub type G1Affine = <G1 as CurveGroup>::Affine;
+pub type Fr = <G1 as Group>::ScalarField;
 
 /// A secret key for Elgamal encryption over the BLS12-381 curve, basically
 /// a wrapper around the [`DecryptKey`] struct.
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SecretKey {
-    inner: DecryptKey<ark_bls12_381::Bls12_381>,
+    inner: DecryptKey<G1>,
 }
 
 impl SecretKey {
     /// Create a new secret key with group generator `g1` and secret `x`.
-    pub fn new(g1: G1, x: Fr) -> Self {
+    pub fn new(g1: G1Affine, x: Fr) -> Self {
         Self {
             inner: DecryptKey::new(g1, x),
         }
@@ -67,14 +38,14 @@ impl SecretKey {
     ///
     /// ```rust
     /// use ark_std::UniformRand;
-    /// use bls_elgamal::{Fr, SecretKey, G1};
+    /// use bls_elgamal::{Fr, SecretKey, G1Affine};
     /// use rand::prelude::StdRng;
     /// use rand_core::SeedableRng;
     ///
     /// let mut rng = StdRng::from_entropy();
     /// let x = Fr::rand(&mut rng);
-    /// let g1: G1 = G1::rand(&mut rng);
-    /// let m = G1::rand(&mut rng);
+    /// let g1 = G1Affine::rand(&mut rng);
+    /// let m = G1Affine::rand(&mut rng);
     ///     
     /// let sk = SecretKey::new(g1, x);
     /// let pk = sk.public_key();
@@ -85,7 +56,7 @@ impl SecretKey {
     ///
     /// assert_eq!(m, d_m);
     /// ```
-    pub fn decrypt(&self, ct: Ciphertext<F>) -> G1 {
+    pub fn decrypt(&self, ct: Ciphertext<G1>) -> G1Affine {
         self.inner.decrypt(ct)
     }
 
@@ -103,7 +74,7 @@ impl SecretKey {
 /// The public key is created from the secret key [`SecretKey`].
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PublicKey {
-    inner: EncryptKey<F>,
+    inner: EncryptKey<G1>,
 }
 
 impl PublicKey {
@@ -113,23 +84,23 @@ impl PublicKey {
     ///
     /// ```rust
     /// use ark_std::UniformRand;
-    /// use bls_elgamal::{Fr, SecretKey, G1};
+    /// use bls_elgamal::{Fr, SecretKey, G1Affine};
     /// use rand::prelude::StdRng;
     /// use rand_core::SeedableRng;
     ///
     /// let mut rng = StdRng::from_entropy();
     /// let x = Fr::rand(&mut rng);
-    /// let g1: G1 = G1::rand(&mut rng);
+    /// let g1 = G1Affine::rand(&mut rng);
     ///
     /// let sk = SecretKey::new(g1, x);
     /// let pk = sk.public_key();
     ///
-    /// let m = G1::rand(&mut rng);
+    /// let m = G1Affine::rand(&mut rng);
     /// let r = Fr::rand(&mut rng);
     ///
     /// let ct = pk.encrypt(m, r);
     /// ```
-    pub fn encrypt(&self, m: G1, r: Fr) -> Ciphertext<F> {
+    pub fn encrypt(&self, m: G1Affine, r: Fr) -> Ciphertext<G1> {
         self.inner.encrypt(m, r)
     }
 
@@ -139,18 +110,18 @@ impl PublicKey {
     ///
     /// ```rust
     /// use ark_std::UniformRand;
-    /// use bls_elgamal::{Fr, SecretKey, G1};
+    /// use bls_elgamal::{Fr, SecretKey, G1Affine};
     /// use rand::prelude::StdRng;
     /// use rand_core::SeedableRng;
     ///
     /// let mut rng = StdRng::from_entropy();
     /// let x = Fr::rand(&mut rng);
-    /// let g1: G1 = G1::rand(&mut rng);
+    /// let g1 = G1Affine::rand(&mut rng);
     ///
     /// let sk = SecretKey::new(g1, x);
     /// let pk = sk.public_key();
     ///
-    /// let m = G1::rand(&mut rng);
+    /// let m = G1Affine::rand(&mut rng);
     /// let r = Fr::rand(&mut rng);
     ///
     /// let ct = pk.encrypt(m, r);
@@ -161,7 +132,7 @@ impl PublicKey {
     /// let d_m = sk.decrypt(new_ct);
     /// assert_eq!(m, d_m);
     /// ```
-    pub fn rerandomize(&self, ct: Ciphertext<F>, r: Fr) -> Ciphertext<F> {
+    pub fn rerandomize(&self, ct: Ciphertext<G1>, r: Fr) -> Ciphertext<G1> {
         self.inner.rerandomize(ct, r)
     }
 }

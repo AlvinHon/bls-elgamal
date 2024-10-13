@@ -1,4 +1,4 @@
-use ark_ec::pairing::Pairing;
+use ark_ec::{CurveGroup, Group};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::Neg;
@@ -10,14 +10,14 @@ use super::{ciphertext::Ciphertext, encrypt::EncryptKey};
 /// It is implemented by using G1 in an elliptic curve pairing (the trait E) that defines the data
 /// types of the group elements and scalar fields.
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub struct DecryptKey<E: Pairing> {
-    pub(crate) secret: E::ScalarField, // x
-    pub(crate) encrypt_key: EncryptKey<E>,
+pub struct DecryptKey<G: CurveGroup> {
+    pub(crate) secret: <G as Group>::ScalarField, // x
+    pub(crate) encrypt_key: EncryptKey<G>,
 }
 
-impl<E: Pairing> DecryptKey<E> {
+impl<G: CurveGroup> DecryptKey<G> {
     /// Create a new decryption key with group generator `generator` and secret `x`.
-    pub fn new(generator: E::G1Affine, x: E::ScalarField) -> Self {
+    pub fn new(generator: G::Affine, x: <G as Group>::ScalarField) -> Self {
         let y = (generator * x).into();
         Self {
             secret: x,
@@ -26,22 +26,22 @@ impl<E: Pairing> DecryptKey<E> {
     }
 
     /// Decrypt a ciphertext (a, b) to get b - ax.
-    pub fn decrypt(&self, ct: Ciphertext<E>) -> E::G1Affine {
+    pub fn decrypt(&self, ct: Ciphertext<G>) -> G::Affine {
         (ct.1 + ct.0 * self.secret.neg()).into()
     }
 
     /// Get the encrypt key.
-    pub fn encrypt_key(&self) -> &EncryptKey<E> {
+    pub fn encrypt_key(&self) -> &EncryptKey<G> {
         &self.encrypt_key
     }
 
     /// Get the scalar field secret (x).
-    pub fn secret(&self) -> E::ScalarField {
+    pub fn secret(&self) -> <G as Group>::ScalarField {
         self.secret
     }
 }
 
-impl<E: Pairing> Serialize for DecryptKey<E> {
+impl<G: CurveGroup> Serialize for DecryptKey<G> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -58,13 +58,13 @@ impl<E: Pairing> Serialize for DecryptKey<E> {
     }
 }
 
-impl<'de, E: Pairing> Deserialize<'de> for DecryptKey<E> {
+impl<'de, G: CurveGroup> Deserialize<'de> for DecryptKey<G> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        let secret = E::ScalarField::deserialize_compressed(&bytes[..])
+        let secret = <G as Group>::ScalarField::deserialize_compressed(&bytes[..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the secret"))?;
         let secret_size = secret.serialized_size(ark_serialize::Compress::Yes);
         let enc_key =

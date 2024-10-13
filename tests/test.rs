@@ -1,6 +1,6 @@
 use ark_ec::CurveGroup;
 use ark_std::UniformRand;
-use bls_elgamal::{Ciphertext, Fr, PublicKey, SecretKey, F, G1};
+use bls_elgamal::{Ciphertext, Fr, G1Affine, PublicKey, SecretKey, G1};
 use rand::prelude::StdRng;
 use rand_core::SeedableRng;
 
@@ -9,12 +9,12 @@ fn test_encrypt_decrypt() {
     for _ in 0..100 {
         let mut rng = StdRng::from_entropy();
         let x = Fr::rand(&mut rng);
-        let g1: G1 = G1::rand(&mut rng);
+        let g1 = G1Affine::rand(&mut rng);
 
         let sk = SecretKey::new(g1, x);
         let pk = sk.public_key();
 
-        let m = G1::rand(&mut rng);
+        let m = G1Affine::rand(&mut rng);
         let r = Fr::rand(&mut rng);
 
         // encrypt and decrypt the message
@@ -29,13 +29,13 @@ fn test_encrypt_different_message() {
     for _ in 0..100 {
         let mut rng = StdRng::from_entropy();
         let x = Fr::rand(&mut rng);
-        let g1: G1 = G1::rand(&mut rng);
+        let g1 = G1Affine::rand(&mut rng);
 
         let sk = SecretKey::new(g1, x);
         let pk = sk.public_key();
 
-        let m1 = G1::rand(&mut rng);
-        let m2 = G1::rand(&mut rng);
+        let m1 = G1Affine::rand(&mut rng);
+        let m2 = G1Affine::rand(&mut rng);
         let r = Fr::rand(&mut rng);
 
         // encrypt two different messages
@@ -51,18 +51,18 @@ fn test_decrypt_modified_ciphertext() {
     for _ in 0..100 {
         let mut rng = StdRng::from_entropy();
         let x = Fr::rand(&mut rng);
-        let g1: G1 = G1::rand(&mut rng);
+        let g1 = G1Affine::rand(&mut rng);
 
         let sk = SecretKey::new(g1, x);
         let pk = sk.public_key();
 
-        let m = G1::rand(&mut rng);
+        let m = G1Affine::rand(&mut rng);
         let r = Fr::rand(&mut rng);
         let Ciphertext(c1, c2) = pk.encrypt(m, r);
 
         // modify the ciphertext
-        let m_c1 = c1 + G1::rand(&mut rng);
-        let m_c2 = c2 + G1::rand(&mut rng);
+        let m_c1 = c1 + G1Affine::rand(&mut rng);
+        let m_c2 = c2 + G1Affine::rand(&mut rng);
         let modified_ct = Ciphertext(m_c1.into_affine(), m_c2.into_affine());
 
         let decrypted_m = sk.decrypt(modified_ct);
@@ -75,13 +75,13 @@ fn test_homomorphic_ciphertext() {
     for _ in 0..100 {
         let mut rng = StdRng::from_entropy();
         let x = Fr::rand(&mut rng);
-        let g1: G1 = G1::rand(&mut rng);
+        let g1 = G1Affine::rand(&mut rng);
 
         let sk = SecretKey::new(g1, x);
         let pk = sk.public_key();
 
-        let m1 = G1::rand(&mut rng);
-        let m2 = G1::rand(&mut rng);
+        let m1 = G1Affine::rand(&mut rng);
+        let m2 = G1Affine::rand(&mut rng);
         let r1 = Fr::rand(&mut rng);
         let r2 = Fr::rand(&mut rng);
 
@@ -101,12 +101,12 @@ fn test_homomorphic_ciphertext() {
 fn test_serde() {
     let mut rng = StdRng::from_entropy();
     let x = Fr::rand(&mut rng);
-    let g1: G1 = G1::rand(&mut rng);
+    let g1 = G1Affine::rand(&mut rng);
 
     let sk = SecretKey::new(g1, x);
     let pk = sk.public_key();
 
-    let m = G1::rand(&mut rng);
+    let m = G1Affine::rand(&mut rng);
     let r = Fr::rand(&mut rng);
     let ct = pk.encrypt(m, r);
 
@@ -122,7 +122,7 @@ fn test_serde() {
 
     // test serialize and deserialize for ciphertext
     let serialized = bincode::serialize(&ct).unwrap();
-    let deserialized_ct: Ciphertext<F> = bincode::deserialize(&serialized).unwrap();
+    let deserialized_ct: Ciphertext<G1> = bincode::deserialize(&serialized).unwrap();
     assert_eq!(ct, deserialized_ct);
 
     // test encrypt and decrypt after serialization and deserialization
