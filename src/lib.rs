@@ -29,22 +29,22 @@
 //! assert_eq!(m, decrypted_m);
 //! ```
 
-pub(crate) mod algorithm;
-pub(crate) mod ciphertext;
+pub mod algorithm;
+pub mod ciphertext;
 pub use ciphertext::Ciphertext;
 
-use ark_bls12_381::{Bls12_381 as F, G1Projective};
 use ark_ec::pairing::Pairing;
 use serde::{Deserialize, Serialize};
 
 // re-export the curve types
-pub type G1 = G1Projective;
+pub type F = ark_bls12_381::Bls12_381;
+pub type G1 = <F as Pairing>::G1Affine;
 pub type Fr = <F as Pairing>::ScalarField;
 
 /// A secret key for Elgamal encryption. The secret key is used to decrypt messages.
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SecretKey {
-    inner: algorithm::DecryptKey<Fr, G1>,
+    inner: algorithm::DecryptKey<ark_bls12_381::Bls12_381>,
 }
 
 impl SecretKey {
@@ -79,7 +79,7 @@ impl SecretKey {
     ///
     /// assert_eq!(m, d_m);
     /// ```
-    pub fn decrypt(&self, ct: Ciphertext<G1>) -> G1 {
+    pub fn decrypt(&self, ct: Ciphertext<F>) -> G1 {
         self.inner.decrypt(ct)
     }
 
@@ -96,7 +96,7 @@ impl SecretKey {
 /// The public key is created from the secret key [`SecretKey`].
 #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PublicKey {
-    inner: algorithm::EncryptKey<Fr, G1>,
+    inner: algorithm::EncryptKey<F>,
 }
 
 impl PublicKey {
@@ -122,7 +122,7 @@ impl PublicKey {
     ///
     /// let ct = pk.encrypt(m, r);
     /// ```
-    pub fn encrypt(&self, m: G1, r: Fr) -> Ciphertext<G1> {
+    pub fn encrypt(&self, m: G1, r: Fr) -> Ciphertext<F> {
         self.inner.encrypt(m, r)
     }
 
@@ -154,7 +154,7 @@ impl PublicKey {
     /// let d_m = sk.decrypt(new_ct);
     /// assert_eq!(m, d_m);
     /// ```
-    pub fn rerandomize(&self, ct: Ciphertext<G1>, r: Fr) -> Ciphertext<G1> {
+    pub fn rerandomize(&self, ct: Ciphertext<F>, r: Fr) -> Ciphertext<F> {
         self.inner.rerandomize(ct, r)
     }
 }

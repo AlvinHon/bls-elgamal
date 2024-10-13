@@ -1,7 +1,7 @@
-use std::ops::{Add, Mul, Sub};
-
+use ark_ec::pairing::Pairing;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
+use std::ops::Neg;
 
 use super::ciphertext::Ciphertext;
 
@@ -10,102 +10,59 @@ use super::ciphertext::Ciphertext;
 ///
 /// The encryption key should be created from the secret key [`DecryptKey`].
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub(crate) struct EncryptKey<S, P>
-where
-    S: CanonicalSerialize + CanonicalDeserialize,
-    P: Copy + Clone + Add<Output = P> + CanonicalSerialize + CanonicalDeserialize,
-    for<'a> P: Mul<&'a S, Output = P>,
-{
+pub struct EncryptKey<E: Pairing> {
     /// The group generator.
-    pub(crate) generator: P,
+    pub(crate) generator: E::G1Affine,
     /// The public key.
-    pub(crate) y: P, // rG
-
-    pub(crate) phantom: core::marker::PhantomData<S>,
+    pub(crate) y: E::G1Affine, // rG
 }
 
-impl<S, P> EncryptKey<S, P>
-where
-    S: CanonicalSerialize + CanonicalDeserialize,
-    P: Copy + Clone + Add<Output = P> + CanonicalSerialize + CanonicalDeserialize,
-    for<'a> P: Mul<&'a S, Output = P>,
-{
+impl<E: Pairing> EncryptKey<E> {
     /// Encrypt a message `m` with randomness `r`. Ciphertext is (rG, m + rY).
-    pub(crate) fn encrypt(&self, m: P, r: S) -> Ciphertext<P> {
-        let a = self.generator * &r;
-        let b = self.y * &r + m;
-        Ciphertext(a, b)
+    pub fn encrypt(&self, m: E::G1Affine, r: E::ScalarField) -> Ciphertext<E> {
+        let a = self.generator * r;
+        let b = self.y * r + m;
+        Ciphertext(a.into(), b.into())
     }
 
     /// Rerandomize a ciphertext with randomness `r`. Ciphertext is (a + rG, b + rY).
-    pub(crate) fn rerandomize(&self, ct: Ciphertext<P>, r: S) -> Ciphertext<P> {
-        let a = ct.0 + self.generator * &r;
-        let b = ct.1 + self.y * &r;
-        Ciphertext(a, b)
+    pub fn rerandomize(&self, ct: Ciphertext<E>, r: E::ScalarField) -> Ciphertext<E> {
+        let a = ct.0 + self.generator * r;
+        let b = ct.1 + self.y * r;
+        Ciphertext(a.into(), b.into())
     }
 }
 
 /// A key to decrypt a message. The decryption key is implemented with elliptic curve
 /// cryptography, where S is the scalar field and P is the elliptic curve point.
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub(crate) struct DecryptKey<S, P>
-where
-    S: CanonicalSerialize + CanonicalDeserialize,
-    P: Copy
-        + Clone
-        + Add<Output = P>
-        + Mul<S, Output = P>
-        + Sub<Output = P>
-        + CanonicalSerialize
-        + CanonicalDeserialize,
-    for<'a> P: Mul<&'a S, Output = P>,
-{
-    pub(crate) generator: P,
-    pub(crate) secret: S, // x
-    pub(crate) encrypt_key: EncryptKey<S, P>,
+pub struct DecryptKey<E: Pairing> {
+    pub(crate) generator: E::G1Affine,
+    pub(crate) secret: E::ScalarField, // x
+    pub(crate) encrypt_key: EncryptKey<E>,
 }
 
-impl<S, P> DecryptKey<S, P>
-where
-    S: CanonicalSerialize + CanonicalDeserialize,
-    P: Copy
-        + Clone
-        + Add<Output = P>
-        + Mul<S, Output = P>
-        + Sub<Output = P>
-        + CanonicalSerialize
-        + CanonicalDeserialize,
-    for<'a> P: Mul<&'a S, Output = P>,
-{
+impl<E: Pairing> DecryptKey<E> {
     /// Create a new decryption key with group generator `generator` and secret `x`.
-    pub(crate) fn new(generator: P, x: S) -> Self {
-        let y = generator * &x;
+    pub fn new(generator: E::G1Affine, x: E::ScalarField) -> Self {
+        let y = (generator * x).into();
         Self {
             generator,
             secret: x,
-            encrypt_key: EncryptKey {
-                generator,
-                y,
-                phantom: core::marker::PhantomData,
-            },
+            encrypt_key: EncryptKey { generator, y },
         }
     }
 
     /// Decrypt a ciphertext (a, b) to get b - ax.
-    pub(crate) fn decrypt(&self, ct: Ciphertext<P>) -> P {
-        ct.1 - ct.0 * &self.secret
+    pub fn decrypt(&self, ct: Ciphertext<E>) -> E::G1Affine {
+        (ct.1 + ct.0 * self.secret.neg()).into()
     }
 }
 
-impl<S, P> Serialize for EncryptKey<S, P>
-where
-    S: CanonicalSerialize + CanonicalDeserialize,
-    P: Copy + Clone + Add<Output = P> + CanonicalSerialize + CanonicalDeserialize,
-    for<'a> P: Mul<&'a S, Output = P>,
-{
-    fn serialize<E>(&self, serializer: E) -> Result<E::Ok, E::Error>
+impl<E: Pairing> Serialize for EncryptKey<E> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        E: serde::Serializer,
+        S: serde::Serializer,
     {
         let mut bytes = Vec::new();
         self.generator
@@ -118,45 +75,25 @@ where
     }
 }
 
-impl<'de, S, P> Deserialize<'de> for EncryptKey<S, P>
-where
-    S: CanonicalSerialize + CanonicalDeserialize,
-    P: Copy + Clone + Add<Output = P> + CanonicalSerialize + CanonicalDeserialize,
-    for<'a> P: Mul<&'a S, Output = P>,
-{
+impl<'de, E: Pairing> Deserialize<'de> for EncryptKey<E> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        let generator = P::deserialize_compressed(&bytes[..])
+        let generator = E::G1Affine::deserialize_compressed(&bytes[..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the generator"))?;
         let generator_size = generator.serialized_size(ark_serialize::Compress::Yes);
-        let y = P::deserialize_compressed(&bytes[generator_size..])
+        let y = E::G1Affine::deserialize_compressed(&bytes[generator_size..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the public key"))?;
-        Ok(EncryptKey {
-            generator,
-            y,
-            phantom: core::marker::PhantomData,
-        })
+        Ok(EncryptKey { generator, y })
     }
 }
 
-impl<S, P> Serialize for DecryptKey<S, P>
-where
-    S: CanonicalSerialize + CanonicalDeserialize,
-    P: Copy
-        + Clone
-        + Add<Output = P>
-        + Mul<S, Output = P>
-        + Sub<Output = P>
-        + CanonicalSerialize
-        + CanonicalDeserialize,
-    for<'a> P: Mul<&'a S, Output = P>,
-{
-    fn serialize<E>(&self, serializer: E) -> Result<E::Ok, E::Error>
+impl<E: Pairing> Serialize for DecryptKey<E> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        E: serde::Serializer,
+        S: serde::Serializer,
     {
         let mut bytes = Vec::new();
         self.generator
@@ -173,32 +110,20 @@ where
     }
 }
 
-impl<'de, S, P> Deserialize<'de> for DecryptKey<S, P>
-where
-    S: CanonicalSerialize + CanonicalDeserialize,
-    P: Copy
-        + Clone
-        + Add<Output = P>
-        + Mul<S, Output = P>
-        + Sub<Output = P>
-        + CanonicalSerialize
-        + CanonicalDeserialize,
-    for<'a> P: Mul<&'a S, Output = P>,
-{
+impl<'de, E: Pairing> Deserialize<'de> for DecryptKey<E> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        let generator = P::deserialize_compressed(&bytes[..])
+        let generator = E::G1Affine::deserialize_compressed(&bytes[..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the generator"))?;
         let generator_size = generator.serialized_size(ark_serialize::Compress::Yes);
-        let secret = S::deserialize_compressed(&bytes[generator_size..])
+        let secret = E::ScalarField::deserialize_compressed(&bytes[generator_size..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the secret"))?;
         let secret_size = secret.serialized_size(ark_serialize::Compress::Yes);
-        let enc_key: EncryptKey<S, P> =
-            bincode::deserialize(&bytes[(generator_size + secret_size)..])
-                .map_err(serde::de::Error::custom)?;
+        let enc_key = bincode::deserialize(&bytes[(generator_size + secret_size)..])
+            .map_err(serde::de::Error::custom)?;
 
         Ok(DecryptKey {
             generator,

@@ -1,65 +1,51 @@
 use std::ops::Add;
 
+use ark_ec::pairing::Pairing;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
 /// A ciphertext is a pair of two points.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 // (rG, m + rY)
-pub struct Ciphertext<P>(pub P, pub P);
+pub struct Ciphertext<E: Pairing>(pub E::G1Affine, pub E::G1Affine);
 
 // Implement homomorphic addition for Ciphertext
 
-impl<P> Add for Ciphertext<P>
-where
-    P: Add<Output = P>,
-{
-    type Output = Ciphertext<P>;
+impl<E: Pairing> Add for Ciphertext<E> {
+    type Output = Ciphertext<E>;
 
     fn add(self, rhs: Self) -> Self {
-        Ciphertext(self.0 + rhs.0, self.1 + rhs.1)
+        Ciphertext((self.0 + rhs.0).into(), (self.1 + rhs.1).into())
     }
 }
 
-impl<P> Add for &Ciphertext<P>
-where
-    for<'a> &'a P: Add<&'a P, Output = P>,
-{
-    type Output = Ciphertext<P>;
+impl<E: Pairing> Add for &Ciphertext<E> {
+    type Output = Ciphertext<E>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Ciphertext(&self.0 + &rhs.0, &self.1 + &rhs.1)
+        Ciphertext((self.0 + rhs.0).into(), (self.1 + rhs.1).into())
     }
 }
 
-impl<P> Add<&Ciphertext<P>> for Ciphertext<P>
-where
-    for<'a> P: Add<&'a P, Output = P>,
-{
-    type Output = Ciphertext<P>;
+impl<E: Pairing> Add<&Ciphertext<E>> for Ciphertext<E> {
+    type Output = Ciphertext<E>;
 
     fn add(self, rhs: &Self) -> Self::Output {
-        Ciphertext(self.0 + &rhs.0, self.1 + &rhs.1)
+        Ciphertext((self.0 + rhs.0).into(), (self.1 + rhs.1).into())
     }
 }
 
-impl<P> Add<Ciphertext<P>> for &Ciphertext<P>
-where
-    for<'a> &'a P: Add<P, Output = P>,
-{
-    type Output = Ciphertext<P>;
+impl<E: Pairing> Add<Ciphertext<E>> for &Ciphertext<E> {
+    type Output = Ciphertext<E>;
 
-    fn add(self, rhs: Ciphertext<P>) -> Self::Output {
-        Ciphertext(&self.0 + rhs.0, &self.1 + rhs.1)
+    fn add(self, rhs: Ciphertext<E>) -> Self::Output {
+        Ciphertext((self.0 + rhs.0).into(), (self.1 + rhs.1).into())
     }
 }
 
 // Implement serialization and deserialization for Ciphertext
 
-impl<P> Serialize for Ciphertext<P>
-where
-    P: CanonicalSerialize + CanonicalDeserialize,
-{
+impl<E: Pairing> Serialize for Ciphertext<E> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -76,21 +62,18 @@ where
     }
 }
 
-impl<'de, P> Deserialize<'de> for Ciphertext<P>
-where
-    P: CanonicalSerialize + CanonicalDeserialize,
-{
+impl<'de, E: Pairing> Deserialize<'de> for Ciphertext<E> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
 
-        let a = P::deserialize_compressed(&bytes[..])
+        let a = E::G1Affine::deserialize_compressed(&bytes[..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the first point"))?;
 
         let a_size = a.serialized_size(ark_serialize::Compress::Yes);
-        let b = P::deserialize_compressed(&bytes[a_size..])
+        let b = E::G1Affine::deserialize_compressed(&bytes[a_size..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the second point"))?;
 
         Ok(Ciphertext(a, b))
