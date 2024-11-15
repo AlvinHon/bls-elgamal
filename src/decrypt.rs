@@ -1,4 +1,4 @@
-use ark_ec::{CurveGroup, Group};
+use ark_ec::{CurveGroup, PrimeGroup};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::Neg;
@@ -11,13 +11,13 @@ use super::{ciphertext::Ciphertext, encrypt::EncryptKey};
 /// types of the group elements and scalar fields.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct DecryptKey<G: CurveGroup> {
-    pub(crate) secret: <G as Group>::ScalarField, // x
+    pub(crate) secret: <G as PrimeGroup>::ScalarField, // x
     pub(crate) encrypt_key: EncryptKey<G>,
 }
 
 impl<G: CurveGroup> DecryptKey<G> {
     /// Create a new decryption key with group generator `generator` and secret `x`.
-    pub fn new(generator: G::Affine, x: <G as Group>::ScalarField) -> Self {
+    pub fn new(generator: G::Affine, x: <G as PrimeGroup>::ScalarField) -> Self {
         let y = (generator * x).into();
         Self {
             secret: x,
@@ -36,7 +36,7 @@ impl<G: CurveGroup> DecryptKey<G> {
     }
 
     /// Get the scalar field secret (x).
-    pub fn secret(&self) -> <G as Group>::ScalarField {
+    pub fn secret(&self) -> <G as PrimeGroup>::ScalarField {
         self.secret
     }
 }
@@ -64,7 +64,7 @@ impl<'de, G: CurveGroup> Deserialize<'de> for DecryptKey<G> {
         D: serde::Deserializer<'de>,
     {
         let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        let secret = <G as Group>::ScalarField::deserialize_compressed(&bytes[..])
+        let secret = <G as PrimeGroup>::ScalarField::deserialize_compressed(&bytes[..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the secret"))?;
         let secret_size = secret.serialized_size(ark_serialize::Compress::Yes);
         let enc_key =

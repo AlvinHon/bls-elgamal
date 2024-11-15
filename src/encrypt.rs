@@ -1,4 +1,4 @@
-use ark_ec::{CurveGroup, Group};
+use ark_ec::{CurveGroup, PrimeGroup};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -20,14 +20,18 @@ pub struct EncryptKey<G: CurveGroup> {
 
 impl<G: CurveGroup> EncryptKey<G> {
     /// Encrypt a message `m` with randomness `r`. Ciphertext is (rG, m + rY).
-    pub fn encrypt(&self, m: G::Affine, r: <G as Group>::ScalarField) -> Ciphertext<G> {
+    pub fn encrypt(&self, m: G::Affine, r: <G as PrimeGroup>::ScalarField) -> Ciphertext<G> {
         let a = self.generator * r;
         let b = self.y * r + m;
         Ciphertext(a.into(), b.into())
     }
 
     /// Rerandomize a ciphertext with randomness `r`. Ciphertext is (a + rG, b + rY).
-    pub fn rerandomize(&self, ct: Ciphertext<G>, r: <G as Group>::ScalarField) -> Ciphertext<G> {
+    pub fn rerandomize(
+        &self,
+        ct: Ciphertext<G>,
+        r: <G as PrimeGroup>::ScalarField,
+    ) -> Ciphertext<G> {
         let a = ct.0 + self.generator * r;
         let b = ct.1 + self.y * r;
         Ciphertext(a.into(), b.into())

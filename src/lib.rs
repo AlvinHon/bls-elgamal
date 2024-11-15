@@ -9,13 +9,13 @@ pub use decrypt::DecryptKey;
 pub mod encrypt;
 pub use encrypt::EncryptKey;
 
-use ark_ec::{pairing::Pairing, CurveGroup, Group};
+use ark_ec::{pairing::Pairing, CurveGroup, PrimeGroup};
 use serde::{Deserialize, Serialize};
 
 // re-export the curve types
 pub type G1 = <ark_bls12_381::Bls12_381 as Pairing>::G1;
 pub type G1Affine = <G1 as CurveGroup>::Affine;
-pub type Fr = <G1 as Group>::ScalarField;
+pub type Fr = <G1 as PrimeGroup>::ScalarField;
 
 /// A secret key for Elgamal encryption over the BLS12-381 curve, basically
 /// a wrapper around the [`DecryptKey`] struct.
