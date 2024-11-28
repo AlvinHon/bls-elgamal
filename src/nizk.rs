@@ -16,7 +16,7 @@ pub(crate) struct Crs<E: Pairing> {
 }
 
 impl<E: Pairing> Crs<E> {
-    pub fn rand<R: Rng>(rng: &mut R) -> Self {
+    pub(crate) fn rand<R: Rng>(rng: &mut R) -> Self {
         let p1 = E::G1::rand(rng);
         let p2 = E::G2::rand(rng);
 
@@ -31,19 +31,19 @@ impl<E: Pairing> Crs<E> {
         Self { p1, p2, u, v }
     }
 
-    pub fn u1(&self) -> Array2<E::G1> {
+    fn u1(&self) -> Array2<E::G1> {
         arr2(&[[self.u[(0, 0)], self.u[(1, 0)]]])
     }
 
-    pub fn u2(&self) -> Array2<E::G1> {
+    fn u2(&self) -> Array2<E::G1> {
         arr2(&[[self.u[(0, 1)], self.u[(1, 1)]]])
     }
 
-    pub fn v1(&self) -> Array2<E::G2> {
+    fn v1(&self) -> Array2<E::G2> {
         arr2(&[[self.v[(0, 0)], self.v[(1, 0)]]])
     }
 
-    pub fn v2(&self) -> Array2<E::G2> {
+    fn v2(&self) -> Array2<E::G2> {
         arr2(&[[self.v[(0, 1)], self.v[(1, 1)]]])
     }
 }
@@ -55,6 +55,7 @@ pub struct Proof<E: Pairing> {
     theta: Array2<E::G1>,
 }
 
+/// Create a GS proof for the multi-scalar multiplication equation yA + bX = c on G1.
 pub(crate) fn prove<E: Pairing, R: Rng>(
     rng: &mut R,
     crs: &Crs<E>,
@@ -85,6 +86,7 @@ pub(crate) fn prove<E: Pairing, R: Rng>(
     Proof { c, d, pi, theta }
 }
 
+/// Verify a GS proof for the multi-scalar multiplication equation yA + bX = c on G1.
 pub(crate) fn verify<E: Pairing>(
     crs: &Crs<E>,
     a: Vec<E::G1>,
@@ -100,9 +102,11 @@ pub(crate) fn verify<E: Pairing>(
     let b = Array2::from_shape_vec((m, 1), b).unwrap();
 
     // l(a) d + c l(b) = l_t(target) + u pi + F(theta, v1)
-    let lhs = matmul::<E>(&l1(&a).reversed_axes(), &d)
+    let lhs = matmul::<E>(&l1(&a).reversed_axes(), d)
         + matmul::<E>(&c.clone().reversed_axes(), &lz2(crs, &b));
-    let rhs = l_t(crs, target) + matmul::<E>(&crs.u, &pi) + f::<E>(&theta, &crs.v1());
+    let rhs = l_t(crs, target)
+        + matmul::<E>(&crs.u.clone().reversed_axes(), pi)
+        + f::<E>(theta, &crs.v1());
 
     lhs == rhs
 }
@@ -123,7 +127,7 @@ fn commit_y<E: Pairing>(
     s: &Array2<E::ScalarField>,
     y: &Array2<E::ScalarField>,
 ) -> Array2<E::G2> {
-    // d = l(y) + Rv
+    // d = l(y) + s v1
     lz2(crs, y) + scalar_matmul_g2::<E>(s, &crs.v1())
 }
 
@@ -160,8 +164,8 @@ fn l1<G: CurveGroup>(a: &Array2<G>) -> Array2<G> {
 fn lz1<E: Pairing>(crs: &Crs<E>, z: &Array2<E::ScalarField>) -> Array2<E::G1> {
     let m = z.dim().0;
 
-    // u = u2 + (0, p) = [u[1, 0] | u[1, 1] + p]
-    let mut u = Array2::from_elem((m, 1), crs.u[(1, 0)]);
+    // u = u2 + (0, p) = [u[0, 1] | u[1, 1] + p]
+    let mut u = Array2::from_elem((m, 1), crs.u[(0, 1)]);
     let ps = Array2::from_elem((m, 1), crs.u[(1, 1)] + crs.p1);
     u.append(Axis(1), ps.view()).unwrap(); // dim = (m, 2)
 
@@ -173,8 +177,8 @@ fn lz1<E: Pairing>(crs: &Crs<E>, z: &Array2<E::ScalarField>) -> Array2<E::G1> {
 fn lz2<E: Pairing>(crs: &Crs<E>, z: &Array2<E::ScalarField>) -> Array2<E::G2> {
     let m = z.dim().0;
 
-    // v = v2 + (0, p) = [v[1, 0] | v[1, 1] + p]
-    let mut v = Array2::from_elem((m, 1), crs.v[(1, 0)]);
+    // v = v2 + (0, p) = [v[0, 1] | v[1, 1] + p]
+    let mut v = Array2::from_elem((m, 1), crs.v[(0, 1)]);
     let ps = Array2::from_elem((m, 1), crs.v[(1, 1)] + crs.p2);
     v.append(Axis(1), ps.view()).unwrap(); // dim = (m, 2)
 
@@ -191,16 +195,16 @@ fn l_t<E: Pairing>(crs: &Crs<E>, target: E::G1) -> Array2<PairingOutput<E>> {
 
 /// Mapping function of paring product on group elements G1 and G2. Returns matrix with dim = (2, 2)
 fn f<E: Pairing>(x: &Array2<E::G1>, y: &Array2<E::G2>) -> Array2<PairingOutput<E>> {
-    // ([[x1],[x2]], [[y1],[y2]]) -> [[e(x1, y1), e(x1, y2)], [e(x2, y1), e(x2, y2)]]
+    // ([[x1, x2]], [[y1, y2]]) -> [[e(x1, y1), e(x1, y2)], [e(x2, y1), e(x2, y2)]]
 
     arr2(&[
         [
             E::pairing(x[(0, 0)], y[(0, 0)]),
-            E::pairing(x[(0, 0)], y[(1, 0)]),
+            E::pairing(x[(0, 0)], y[(0, 1)]),
         ],
         [
-            E::pairing(x[(1, 0)], y[(0, 0)]),
-            E::pairing(x[(1, 0)], y[(1, 0)]),
+            E::pairing(x[(0, 1)], y[(0, 0)]),
+            E::pairing(x[(0, 1)], y[(0, 1)]),
         ],
     ])
 }
@@ -229,7 +233,7 @@ pub(crate) fn scalar_matmul_g1<E: Pairing>(
 }
 
 /// Scalar matrix multiplication, left matrix is group element (G1) and right matrix is group element (G2).
-pub(crate) fn matmul<E: Pairing>(a: &Array2<E::G1>, b: &Array2<E::G2>) -> Array2<PairingOutput<E>> {
+fn matmul<E: Pairing>(a: &Array2<E::G1>, b: &Array2<E::G2>) -> Array2<PairingOutput<E>> {
     let (m, n_prime) = a.dim();
     let (m_prime, n) = b.dim();
     assert!(n_prime == m_prime);
@@ -249,10 +253,7 @@ pub(crate) fn matmul<E: Pairing>(a: &Array2<E::G1>, b: &Array2<E::G2>) -> Array2
 }
 
 /// Scalar matrix multiplication, left matrix is scalar and right matrix is group element (G2).
-pub(crate) fn scalar_matmul_g2<E: Pairing>(
-    a: &Array2<E::ScalarField>,
-    b: &Array2<E::G2>,
-) -> Array2<E::G2> {
+fn scalar_matmul_g2<E: Pairing>(a: &Array2<E::ScalarField>, b: &Array2<E::G2>) -> Array2<E::G2> {
     let (m, n_prime) = a.dim();
     let (m_prime, n) = b.dim();
     assert!(n_prime == m_prime);
@@ -273,9 +274,30 @@ pub(crate) fn scalar_matmul_g2<E: Pairing>(
 
 #[cfg(test)]
 mod test {
+    use ark_bls12_381::Bls12_381 as E;
+
+    use crate::{Fr, G1};
+
+    use super::*;
 
     #[test]
     fn test_gs_proof() {
-        // TODO
+        let rng = &mut ark_std::test_rng();
+
+        let crs = Crs::<E>::rand(rng);
+
+        // c = m + rY
+        let m = G1::rand(rng);
+        let y = G1::rand(rng);
+        let r = Fr::rand(rng);
+        let c = m + y.mul(r);
+
+        // GS proof for multi-scalar multiplication equation:
+        // yA + bX = c
+        // where y = [r], A = [Y], X = [m], b = [1]
+
+        let proof = prove(rng, &crs, vec![y], vec![r], vec![m], vec![Fr::one()]);
+
+        assert!(verify(&crs, vec![y], vec![Fr::one()], c, &proof));
     }
 }
