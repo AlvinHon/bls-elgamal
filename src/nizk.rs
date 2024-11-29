@@ -56,11 +56,13 @@ pub struct Proof<E: Pairing> {
 }
 
 impl<E: Pairing> Proof<E> {
-    pub(crate) fn randomize_commitments<R: Rng>(
+    pub(crate) fn randomize<R: Rng>(
         &self,
         rng: &mut R,
         crs: &Crs<E>,
-    ) -> RandomizedCommitments<E> {
+        a: Vec<E::G1>,
+        b: Vec<E::ScalarField>,
+    ) -> Self {
         let m = self.c.dim().0;
         let n = self.d.dim().0;
 
@@ -70,43 +72,19 @@ impl<E: Pairing> Proof<E> {
         let new_c = randomize_com_x(&crs, &r, &self.c);
         let new_d = randomize_com_y(&crs, &s, &self.d);
 
-        RandomizedCommitments {
-            r,
-            s,
-            c: new_c,
-            d: new_d,
-        }
-    }
-}
-
-pub struct RandomizedCommitments<E: Pairing> {
-    r: Array2<E::ScalarField>,
-    s: Array2<E::ScalarField>,
-    c: Array2<E::G1>,
-    d: Array2<E::G2>,
-}
-
-impl<E: Pairing> RandomizedCommitments<E> {
-    pub(crate) fn adapt_proof<R: Rng>(
-        self,
-        rng: &mut R,
-        crs: &Crs<E>,
-        a: Vec<E::G1>,
-        b: Vec<E::ScalarField>,
-        proof: &Proof<E>,
-    ) -> Proof<E> {
-        let RandomizedCommitments { r, s, c, d } = self;
-        let m = b.len();
-        let n = a.len();
-
         let t = Array2::from_shape_fn((1, 2), |_| E::ScalarField::rand(rng));
 
         let a = Array2::from_shape_vec((n, 1), a).unwrap();
         let b = Array2::from_shape_vec((m, 1), b).unwrap();
 
-        let (pi, theta) = randomize_proof(crs, &r, &s, &t, &a, &b, &proof.pi, &proof.theta);
+        let (pi, theta) = randomize_proof(crs, &r, &s, &t, &a, &b, &self.pi, &self.theta);
 
-        Proof { c, d, pi, theta }
+        Self {
+            c: new_c,
+            d: new_d,
+            pi,
+            theta,
+        }
     }
 }
 
@@ -397,12 +375,9 @@ mod test {
 
         // Test randomization
 
-        let new_commitments = proof.randomize_commitments(rng, &crs);
-        assert!(proof.c != new_commitments.c);
-        assert!(proof.d != new_commitments.d);
-
-        let new_proof = new_commitments.adapt_proof(rng, &crs, vec![y], vec![Fr::one()], &proof);
-
+        let new_proof = proof.randomize(rng, &crs, vec![y], vec![Fr::one()]);
+        assert!(proof.c != new_proof.c);
+        assert!(proof.d != new_proof.d);
         assert!(proof.pi != new_proof.pi);
         assert!(proof.theta != new_proof.theta);
 
