@@ -55,6 +55,61 @@ pub struct Proof<E: Pairing> {
     theta: Array2<E::G1>,
 }
 
+impl<E: Pairing> Proof<E> {
+    pub(crate) fn randomize_commitments<R: Rng>(
+        &self,
+        rng: &mut R,
+        crs: &Crs<E>,
+    ) -> RandomizedCommitments<E> {
+        let m = self.c.dim().0;
+        let n = self.d.dim().0;
+
+        let r = Array2::from_shape_fn((m, 2), |_| E::ScalarField::rand(rng));
+        let s = Array2::from_shape_fn((n, 1), |_| E::ScalarField::rand(rng));
+
+        let new_c = randomize_com_x(&crs, &r, &self.c);
+        let new_d = randomize_com_y(&crs, &s, &self.d);
+
+        RandomizedCommitments {
+            r,
+            s,
+            c: new_c,
+            d: new_d,
+        }
+    }
+}
+
+pub struct RandomizedCommitments<E: Pairing> {
+    r: Array2<E::ScalarField>,
+    s: Array2<E::ScalarField>,
+    c: Array2<E::G1>,
+    d: Array2<E::G2>,
+}
+
+impl<E: Pairing> RandomizedCommitments<E> {
+    pub(crate) fn adapt_proof<R: Rng>(
+        self,
+        rng: &mut R,
+        crs: &Crs<E>,
+        a: Vec<E::G1>,
+        b: Vec<E::ScalarField>,
+        proof: &Proof<E>,
+    ) -> Proof<E> {
+        let RandomizedCommitments { r, s, c, d } = self;
+        let m = b.len();
+        let n = a.len();
+
+        let t = Array2::from_shape_fn((1, 2), |_| E::ScalarField::rand(rng));
+
+        let a = Array2::from_shape_vec((n, 1), a).unwrap();
+        let b = Array2::from_shape_vec((m, 1), b).unwrap();
+
+        let (pi, theta) = randomize_proof(crs, &r, &s, &t, &a, &b, &proof.pi, &proof.theta);
+
+        Proof { c, d, pi, theta }
+    }
+}
+
 /// Create a GS proof for the multi-scalar multiplication equation yA + bX = c on G1.
 pub(crate) fn prove<E: Pairing, R: Rng>(
     rng: &mut R,
@@ -121,6 +176,15 @@ fn commit_x<E: Pairing>(
     l1(x) + scalar_matmul_g1::<E>(r, &crs.u)
 }
 
+fn randomize_com_x<E: Pairing>(
+    crs: &Crs<E>,
+    r: &Array2<E::ScalarField>, // m x 2
+    c: &Array2<E::G1>,
+) -> Array2<E::G1> {
+    // c' = c + Ru
+    c + scalar_matmul_g1::<E>(&r, &crs.u)
+}
+
 /// Commit variable (scalar) y in GS Proof.
 fn commit_y<E: Pairing>(
     crs: &Crs<E>,
@@ -129,6 +193,15 @@ fn commit_y<E: Pairing>(
 ) -> Array2<E::G2> {
     // d = l(y) + s v1
     lz2(crs, y) + scalar_matmul_g2::<E>(s, &crs.v1())
+}
+
+fn randomize_com_y<E: Pairing>(
+    crs: &Crs<E>,
+    s: &Array2<E::ScalarField>, // n x 1
+    d: &Array2<E::G2>,
+) -> Array2<E::G2> {
+    // d' = d + s v1
+    d + scalar_matmul_g2::<E>(&s, &crs.v1())
 }
 
 /// Create a GS proof. Returns pi and theta.
@@ -146,6 +219,28 @@ fn proof<E: Pairing>(
 
     // theta = s^T l(a) + T u
     let theta = scalar_matmul_g1::<E>(&s.clone().reversed_axes(), &l1(a))
+        + scalar_matmul_g1::<E>(t, &crs.u);
+
+    (phi, theta)
+}
+
+fn randomize_proof<E: Pairing>(
+    crs: &Crs<E>,
+    r: &Array2<E::ScalarField>, // m x 2
+    s: &Array2<E::ScalarField>, // n x 1
+    t: &Array2<E::ScalarField>, // 1 x 2
+    a: &Array2<E::G1>,          // n x 1
+    b: &Array2<E::ScalarField>, // m x 1
+    pi: &Array2<E::G2>,
+    theta: &Array2<E::G1>,
+) -> (Array2<E::G2>, Array2<E::G1>) {
+    // phi' = phi + R^T l(b) - T^T v1
+    let phi = pi.clone() + scalar_matmul_g2::<E>(&r.clone().reversed_axes(), &lz2(crs, b))
+        - scalar_matmul_g2::<E>(&t.clone().reversed_axes(), &crs.v1());
+
+    // theta' = theta + s^T l(a) + T u
+    let theta = theta.clone()
+        + scalar_matmul_g1::<E>(&s.clone().reversed_axes(), &l1(a))
         + scalar_matmul_g1::<E>(t, &crs.u);
 
     (phi, theta)
@@ -299,5 +394,18 @@ mod test {
         let proof = prove(rng, &crs, vec![y], vec![r], vec![m], vec![Fr::one()]);
 
         assert!(verify(&crs, vec![y], vec![Fr::one()], c, &proof));
+
+        // Test randomization
+
+        let new_commitments = proof.randomize_commitments(rng, &crs);
+        assert!(proof.c != new_commitments.c);
+        assert!(proof.d != new_commitments.d);
+
+        let new_proof = new_commitments.adapt_proof(rng, &crs, vec![y], vec![Fr::one()], &proof);
+
+        assert!(proof.pi != new_proof.pi);
+        assert!(proof.theta != new_proof.theta);
+
+        assert!(verify(&crs, vec![y], vec![Fr::one()], c, &new_proof));
     }
 }
