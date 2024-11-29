@@ -86,6 +86,36 @@ impl<E: Pairing> Proof<E> {
             theta,
         }
     }
+
+    /// Adapt the proof to new changes in the variables. It enables re-randomization of the message being proved.
+    pub(crate) fn adapt_proof(
+        &self,
+        crs: &Crs<E>,
+        y_delta: Vec<E::ScalarField>,
+        x_delta: Vec<E::G1>,
+    ) -> Self {
+        let mut c = self.c.clone();
+        let mut d = self.d.clone();
+
+        if !y_delta.is_empty() {
+            assert!(y_delta.len() == d.dim().0);
+            let y_delta = Array2::from_shape_vec((y_delta.len(), 1), y_delta).unwrap();
+            d += &lz2(crs, &y_delta);
+        }
+
+        if !x_delta.is_empty() {
+            assert!(x_delta.len() == c.dim().0);
+            let x_delta = Array2::from_shape_vec((x_delta.len(), 1), x_delta).unwrap();
+            c += &l1(&x_delta);
+        }
+
+        Proof {
+            c,
+            d,
+            pi: self.pi.clone(),
+            theta: self.theta.clone(),
+        }
+    }
 }
 
 /// Create a GS proof for the multi-scalar multiplication equation yA + bX = c on G1.
@@ -382,5 +412,40 @@ mod test {
         assert!(proof.theta != new_proof.theta);
 
         assert!(verify(&crs, vec![y], vec![Fr::one()], c, &new_proof));
+    }
+
+    #[test]
+    fn test_adapt_gs_proof() {
+        let rng = &mut ark_std::test_rng();
+
+        let crs = Crs::<E>::rand(rng);
+
+        // c = m + rY
+        let m = G1::rand(rng);
+        let y = G1::rand(rng);
+        let r = Fr::rand(rng);
+        let c = m + y.mul(r);
+
+        // GS proof for multi-scalar multiplication equation:
+        // yA + bX = c
+        // where y = [r], A = [Y], X = [m], b = [1]
+
+        let proof = prove(rng, &crs, vec![y], vec![r], vec![m], vec![Fr::one()]);
+
+        assert!(verify(&crs, vec![y], vec![Fr::one()], c, &proof));
+
+        // Modify variable y
+        let r_prime = Fr::rand(rng);
+        let c_prime = c + y.mul(r_prime); // c' = c + r'Y = m + (r + r')Y
+
+        let new_proof = proof.adapt_proof(&crs, vec![r_prime], vec![]);
+        assert!(verify(&crs, vec![y], vec![Fr::one()], c_prime, &new_proof));
+
+        // Modify variable m
+        let m_prime = G1::rand(rng);
+        let c_prime = c + m_prime; // c' = m' + rY = (m + m') + rY
+
+        let new_proof = proof.adapt_proof(&crs, vec![], vec![m_prime]);
+        assert!(verify(&crs, vec![y], vec![Fr::one()], c_prime, &new_proof));
     }
 }
