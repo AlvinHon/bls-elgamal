@@ -39,18 +39,16 @@ impl SecretKey {
     /// ```rust
     /// use ark_std::UniformRand;
     /// use bls_elgamal::{Fr, SecretKey, G1Affine};
-    /// use rand::prelude::StdRng;
-    /// use rand_core::SeedableRng;
     ///
-    /// let mut rng = StdRng::from_entropy();
-    /// let x = Fr::rand(&mut rng);
-    /// let g1 = G1Affine::rand(&mut rng);
-    /// let m = G1Affine::rand(&mut rng);
+    /// let rng = &mut rand::thread_rng();
+    /// let x = Fr::rand(rng);
+    /// let g1 = G1Affine::rand(rng);
+    /// let m = G1Affine::rand(rng);
     ///     
     /// let sk = SecretKey::new(g1, x);
     /// let pk = sk.public_key();
     ///
-    /// let r = Fr::rand(&mut rng);
+    /// let r = Fr::rand(rng);
     /// let ct = pk.encrypt(m, r);
     /// let d_m = sk.decrypt(ct);
     ///
@@ -85,18 +83,16 @@ impl PublicKey {
     /// ```rust
     /// use ark_std::UniformRand;
     /// use bls_elgamal::{Fr, SecretKey, G1Affine};
-    /// use rand::prelude::StdRng;
-    /// use rand_core::SeedableRng;
     ///
-    /// let mut rng = StdRng::from_entropy();
-    /// let x = Fr::rand(&mut rng);
-    /// let g1 = G1Affine::rand(&mut rng);
+    /// let rng = &mut rand::thread_rng();
+    /// let x = Fr::rand(rng);
+    /// let g1 = G1Affine::rand(rng);
     ///
     /// let sk = SecretKey::new(g1, x);
     /// let pk = sk.public_key();
     ///
-    /// let m = G1Affine::rand(&mut rng);
-    /// let r = Fr::rand(&mut rng);
+    /// let m = G1Affine::rand(rng);
+    /// let r = Fr::rand(rng);
     ///
     /// let ct = pk.encrypt(m, r);
     /// ```
@@ -111,21 +107,19 @@ impl PublicKey {
     /// ```rust
     /// use ark_std::UniformRand;
     /// use bls_elgamal::{Fr, SecretKey, G1Affine};
-    /// use rand::prelude::StdRng;
-    /// use rand_core::SeedableRng;
     ///
-    /// let mut rng = StdRng::from_entropy();
-    /// let x = Fr::rand(&mut rng);
-    /// let g1 = G1Affine::rand(&mut rng);
+    /// let rng = &mut rand::thread_rng();
+    /// let x = Fr::rand(rng);
+    /// let g1 = G1Affine::rand(rng);
     ///
     /// let sk = SecretKey::new(g1, x);
     /// let pk = sk.public_key();
     ///
-    /// let m = G1Affine::rand(&mut rng);
-    /// let r = Fr::rand(&mut rng);
+    /// let m = G1Affine::rand(rng);
+    /// let r = Fr::rand(rng);
     ///
     /// let ct = pk.encrypt(m, r);
-    /// let new_ct = pk.rerandomize(ct, Fr::rand(&mut rng));
+    /// let new_ct = pk.rerandomize(ct, Fr::rand(rng));
     ///
     /// assert_ne!(ct, new_ct);
     ///

@@ -1,21 +1,19 @@
 use ark_ec::CurveGroup;
 use ark_std::UniformRand;
 use bls_elgamal::{Ciphertext, Fr, G1Affine, PublicKey, SecretKey, G1};
-use rand::prelude::StdRng;
-use rand_core::SeedableRng;
 
 #[test]
 fn test_encrypt_decrypt() {
     for _ in 0..100 {
-        let mut rng = StdRng::from_entropy();
-        let x = Fr::rand(&mut rng);
-        let g1 = G1Affine::rand(&mut rng);
+        let rng = &mut rand::thread_rng();
+        let x = Fr::rand(rng);
+        let g1 = G1Affine::rand(rng);
 
         let sk = SecretKey::new(g1, x);
         let pk = sk.public_key();
 
-        let m = G1Affine::rand(&mut rng);
-        let r = Fr::rand(&mut rng);
+        let m = G1Affine::rand(rng);
+        let r = Fr::rand(rng);
 
         // encrypt and decrypt the message
         let ct = pk.encrypt(m, r);
@@ -26,17 +24,17 @@ fn test_encrypt_decrypt() {
 
 #[test]
 fn test_encrypt_different_message() {
+    let rng = &mut rand::thread_rng();
     for _ in 0..100 {
-        let mut rng = StdRng::from_entropy();
-        let x = Fr::rand(&mut rng);
-        let g1 = G1Affine::rand(&mut rng);
+        let x = Fr::rand(rng);
+        let g1 = G1Affine::rand(rng);
 
         let sk = SecretKey::new(g1, x);
         let pk = sk.public_key();
 
-        let m1 = G1Affine::rand(&mut rng);
-        let m2 = G1Affine::rand(&mut rng);
-        let r = Fr::rand(&mut rng);
+        let m1 = G1Affine::rand(rng);
+        let m2 = G1Affine::rand(rng);
+        let r = Fr::rand(rng);
 
         // encrypt two different messages
         let ct1 = pk.encrypt(m1, r);
@@ -48,21 +46,21 @@ fn test_encrypt_different_message() {
 
 #[test]
 fn test_decrypt_modified_ciphertext() {
+    let rng = &mut rand::thread_rng();
     for _ in 0..100 {
-        let mut rng = StdRng::from_entropy();
-        let x = Fr::rand(&mut rng);
-        let g1 = G1Affine::rand(&mut rng);
+        let x = Fr::rand(rng);
+        let g1 = G1Affine::rand(rng);
 
         let sk = SecretKey::new(g1, x);
         let pk = sk.public_key();
 
-        let m = G1Affine::rand(&mut rng);
-        let r = Fr::rand(&mut rng);
+        let m = G1Affine::rand(rng);
+        let r = Fr::rand(rng);
         let Ciphertext(c1, c2) = pk.encrypt(m, r);
 
         // modify the ciphertext
-        let m_c1 = c1 + G1Affine::rand(&mut rng);
-        let m_c2 = c2 + G1Affine::rand(&mut rng);
+        let m_c1 = c1 + G1Affine::rand(rng);
+        let m_c2 = c2 + G1Affine::rand(rng);
         let modified_ct = Ciphertext(m_c1.into_affine(), m_c2.into_affine());
 
         let decrypted_m = sk.decrypt(modified_ct);
@@ -72,18 +70,18 @@ fn test_decrypt_modified_ciphertext() {
 
 #[test]
 fn test_homomorphic_ciphertext() {
+    let rng = &mut rand::thread_rng();
     for _ in 0..100 {
-        let mut rng = StdRng::from_entropy();
-        let x = Fr::rand(&mut rng);
-        let g1 = G1Affine::rand(&mut rng);
+        let x = Fr::rand(rng);
+        let g1 = G1Affine::rand(rng);
 
         let sk = SecretKey::new(g1, x);
         let pk = sk.public_key();
 
-        let m1 = G1Affine::rand(&mut rng);
-        let m2 = G1Affine::rand(&mut rng);
-        let r1 = Fr::rand(&mut rng);
-        let r2 = Fr::rand(&mut rng);
+        let m1 = G1Affine::rand(rng);
+        let m2 = G1Affine::rand(rng);
+        let r1 = Fr::rand(rng);
+        let r2 = Fr::rand(rng);
 
         // encrypt two messages
         let ct1 = pk.encrypt(m1, r1);
@@ -99,15 +97,15 @@ fn test_homomorphic_ciphertext() {
 
 #[test]
 fn test_serde() {
-    let mut rng = StdRng::from_entropy();
-    let x = Fr::rand(&mut rng);
-    let g1 = G1Affine::rand(&mut rng);
+    let rng = &mut rand::thread_rng();
+    let x = Fr::rand(rng);
+    let g1 = G1Affine::rand(rng);
 
     let sk = SecretKey::new(g1, x);
     let pk = sk.public_key();
 
-    let m = G1Affine::rand(&mut rng);
-    let r = Fr::rand(&mut rng);
+    let m = G1Affine::rand(rng);
+    let r = Fr::rand(rng);
     let ct = pk.encrypt(m, r);
 
     // test serialize and deserialize for secret key
