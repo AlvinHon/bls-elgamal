@@ -9,8 +9,6 @@ pub use decrypt::DecryptKey;
 pub mod encrypt;
 pub use encrypt::EncryptKey;
 
-pub mod nizk;
-
 use ark_ec::{pairing::Pairing, CurveGroup, PrimeGroup};
 use serde::{Deserialize, Serialize};
 
