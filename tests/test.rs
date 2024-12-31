@@ -1,4 +1,3 @@
-use ark_ec::CurveGroup;
 use ark_std::UniformRand;
 use bls_elgamal::{Ciphertext, Fr, G1Affine, PublicKey, SecretKey, G1};
 
@@ -61,7 +60,7 @@ fn test_decrypt_modified_ciphertext() {
         // modify the ciphertext
         let m_c1 = c1 + G1Affine::rand(rng);
         let m_c2 = c2 + G1Affine::rand(rng);
-        let modified_ct = Ciphertext(m_c1.into_affine(), m_c2.into_affine());
+        let modified_ct = Ciphertext(m_c1, m_c2);
 
         let decrypted_m = sk.decrypt(modified_ct);
         assert_ne!(m, decrypted_m);

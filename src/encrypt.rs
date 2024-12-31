@@ -1,5 +1,4 @@
 use ark_ec::{CurveGroup, PrimeGroup};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
 use super::ciphertext::Ciphertext;
@@ -13,9 +12,9 @@ use super::ciphertext::Ciphertext;
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct EncryptKey<G: CurveGroup> {
     /// The group generator.
-    pub(crate) generator: G::Affine,
+    pub(crate) generator: G,
     /// The public key.
-    pub(crate) y: G::Affine, // xG
+    pub(crate) y: G, // xG
 }
 
 impl<G: CurveGroup> EncryptKey<G> {
@@ -23,7 +22,7 @@ impl<G: CurveGroup> EncryptKey<G> {
     pub fn encrypt(&self, m: G::Affine, r: <G as PrimeGroup>::ScalarField) -> Ciphertext<G> {
         let a = self.generator * r;
         let b = self.y * r + m;
-        Ciphertext(a.into(), b.into())
+        Ciphertext(a, b)
     }
 
     /// Rerandomize a ciphertext with randomness `r`. Ciphertext is (a + rG, b + rY).
@@ -34,17 +33,17 @@ impl<G: CurveGroup> EncryptKey<G> {
     ) -> Ciphertext<G> {
         let a = ct.0 + self.generator * r;
         let b = ct.1 + self.y * r;
-        Ciphertext(a.into(), b.into())
+        Ciphertext(a, b)
     }
 
     /// Get the generator.
     pub fn generator(&self) -> G::Affine {
-        self.generator
+        self.generator.into_affine()
     }
 
     /// Get the component Y (= xG) where x is the secret key.
     pub fn y(&self) -> G::Affine {
-        self.y
+        self.y.into_affine()
     }
 }
 
@@ -70,10 +69,10 @@ impl<'de, G: CurveGroup> Deserialize<'de> for EncryptKey<G> {
         D: serde::Deserializer<'de>,
     {
         let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        let generator = G::Affine::deserialize_compressed(&bytes[..])
+        let generator = G::deserialize_compressed(&bytes[..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the generator"))?;
         let generator_size = generator.serialized_size(ark_serialize::Compress::Yes);
-        let y = G::Affine::deserialize_compressed(&bytes[generator_size..])
+        let y = G::deserialize_compressed(&bytes[generator_size..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the public key"))?;
         Ok(EncryptKey { generator, y })
     }

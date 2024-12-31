@@ -1,13 +1,12 @@
 use std::ops::Add;
 
 use ark_ec::CurveGroup;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
 /// A ciphertext is a pair of two points.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 // (rG, m + rY)
-pub struct Ciphertext<G: CurveGroup>(pub G::Affine, pub G::Affine);
+pub struct Ciphertext<G: CurveGroup>(pub G, pub G);
 
 // Implement homomorphic addition for Ciphertext
 
@@ -15,7 +14,7 @@ impl<G: CurveGroup> Add for Ciphertext<G> {
     type Output = Ciphertext<G>;
 
     fn add(self, rhs: Self) -> Self {
-        Ciphertext((self.0 + rhs.0).into(), (self.1 + rhs.1).into())
+        Ciphertext(self.0 + rhs.0, self.1 + rhs.1)
     }
 }
 
@@ -23,7 +22,7 @@ impl<G: CurveGroup> Add for &Ciphertext<G> {
     type Output = Ciphertext<G>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Ciphertext((self.0 + rhs.0).into(), (self.1 + rhs.1).into())
+        Ciphertext(self.0 + rhs.0, self.1 + rhs.1)
     }
 }
 
@@ -31,7 +30,7 @@ impl<G: CurveGroup> Add<&Ciphertext<G>> for Ciphertext<G> {
     type Output = Ciphertext<G>;
 
     fn add(self, rhs: &Self) -> Self::Output {
-        Ciphertext((self.0 + rhs.0).into(), (self.1 + rhs.1).into())
+        Ciphertext(self.0 + rhs.0, self.1 + rhs.1)
     }
 }
 
@@ -39,7 +38,7 @@ impl<G: CurveGroup> Add<Ciphertext<G>> for &Ciphertext<G> {
     type Output = Ciphertext<G>;
 
     fn add(self, rhs: Ciphertext<G>) -> Self::Output {
-        Ciphertext((self.0 + rhs.0).into(), (self.1 + rhs.1).into())
+        Ciphertext(self.0 + rhs.0, self.1 + rhs.1)
     }
 }
 
@@ -69,11 +68,11 @@ impl<'de, G: CurveGroup> Deserialize<'de> for Ciphertext<G> {
     {
         let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
 
-        let a = G::Affine::deserialize_compressed(&bytes[..])
+        let a = G::deserialize_compressed(&bytes[..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the first point"))?;
 
         let a_size = a.serialized_size(ark_serialize::Compress::Yes);
-        let b = G::Affine::deserialize_compressed(&bytes[a_size..])
+        let b = G::deserialize_compressed(&bytes[a_size..])
             .map_err(|_| serde::de::Error::custom("Failed to deserialize the second point"))?;
 
         Ok(Ciphertext(a, b))

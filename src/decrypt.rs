@@ -1,4 +1,4 @@
-use ark_ec::{CurveGroup, PrimeGroup};
+use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::Neg;
@@ -18,7 +18,8 @@ pub struct DecryptKey<G: CurveGroup> {
 impl<G: CurveGroup> DecryptKey<G> {
     /// Create a new decryption key with group generator `generator` and secret `x`.
     pub fn new(generator: G::Affine, x: <G as PrimeGroup>::ScalarField) -> Self {
-        let y = (generator * x).into();
+        let generator = generator.into_group();
+        let y = generator * x;
         Self {
             secret: x,
             encrypt_key: EncryptKey { generator, y },
